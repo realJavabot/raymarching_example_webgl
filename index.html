@@ -1,0 +1,81 @@
+<html>
+    <head>
+        <style>
+            canvas{
+                display:block;
+                margin: auto;
+            }
+        </style>
+    </head>
+<body>
+    <canvas width="400px" height="300px"></canvas>
+    <script>
+        
+
+        // edit these values to change shader
+        const vert_src = "./shaders/ray_vert0.vs";
+        const frag_src = "./shaders/ray_frag0.vs";
+
+
+
+        const canvas = document.querySelector("canvas");
+
+        window.onload = setup;
+
+        async function setup(){
+            const vertex_source = await fetch(vert_src).then(data=>data.text()).catch(e=>{console.log(e)});
+            const fragment_source = await fetch(frag_src).then(data=>data.text()).catch(e=>{console.log(e)});
+
+            const gl = canvas.getContext('webgl');
+
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            gl.clearColor(0, 0, 0, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            const vertShader = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vertShader, vertex_source);
+            gl.compileShader(vertShader);
+
+            const fragShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fragShader, fragment_source);
+            gl.compileShader(fragShader);
+
+            const shaderProgram = gl.createProgram();
+            gl.attachShader(shaderProgram, vertShader); 
+            gl.attachShader(shaderProgram, fragShader);
+            gl.linkProgram(shaderProgram);
+            gl.useProgram(shaderProgram);
+
+            const plane_vertices = [-1,-1, 1,-1, 1,1, -1,-1, 1,1, -1,1];
+
+            const vertex_buffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(plane_vertices), gl.STATIC_DRAW);
+
+            const positionAttributeLocation = gl.getAttribLocation(shaderProgram, "vertex_pos");
+            gl.enableVertexAttribArray(positionAttributeLocation);
+            gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
+
+            const aspectRatioLocation = gl.getUniformLocation(shaderProgram, "aspect_ratio");
+            gl.uniform1f(aspectRatioLocation, canvas.width/canvas.height);
+
+            const matcapLocation = gl.getUniformLocation(shaderProgram, "uMatcap");
+            if(matcapLocation){
+                await new Promise(async (resolve)=>{
+                    let texture = gl.createTexture();
+                    let image = new Image();
+                    image.src = "./images/shiny.jpg";
+                    image.onload = ()=>{
+                        gl.bindTexture(gl.TEXTURE_2D, texture);
+                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+                        gl.generateMipmap(gl.TEXTURE_2D);
+                        resolve(true);
+                    }
+                });
+            }
+
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+        }
+    </script>
+</body>
+</html>
